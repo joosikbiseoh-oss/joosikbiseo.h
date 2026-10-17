@@ -29,9 +29,9 @@ VALUATION_HISTORY = {
 
 
 def add_valuation_averages(stock, row):
-    """Add averages of Yahoo's available month-end valuation history (up to 5 years)."""
+    """Add averages of Yahoo's available annual valuation history (up to five years)."""
     try:
-        measures = stock.get_valuation_measures(freq="monthly", periods=60)
+        measures = stock.get_valuation_measures(freq="yearly", periods=5)
         if measures is None or measures.empty:
             return
         for key, label in VALUATION_HISTORY.items():
