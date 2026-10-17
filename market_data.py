@@ -20,11 +20,44 @@ def number(value):
         return None
 
 
+VALUATION_HISTORY = {
+    "pe": "Trailing P/E",
+    "forward_pe": "Forward P/E",
+    "psr": "Price/Sales",
+    "pbr": "Price/Book",
+}
+
+
+def add_valuation_averages(stock, row):
+    """Add averages of Yahoo's available month-end valuation history (up to 5 years)."""
+    try:
+        measures = stock.get_valuation_measures(freq="monthly", periods=60)
+        if measures is None or measures.empty:
+            return
+        for key, label in VALUATION_HISTORY.items():
+            values = []
+            if label in measures.index:
+                for column in measures.columns:
+                    if str(column).lower() == "current":
+                        continue
+                    value = number(measures.loc[label, column])
+                    if value is not None and value > 0:
+                        values.append(value)
+            row[f"{key}_avg5y"] = round(sum(values) / len(values), 4) if values else None
+            row[f"{key}_avg5y_n"] = len(values)
+    except Exception:
+        # Current data remains useful if historical valuation history is unavailable.
+        return
+
+
 def fetch_one(ticker):
     row = {"ticker": ticker, "name": COMPANIES[ticker], "price": None, "price_date": None,
            "change": None, "change_pct": None, "above50": None, "ordered": None,
            "pe": None, "forward_pe": None, "psr": None, "pbr": None, "fcf": None,
-           "dividend_yield": None}
+           "dividend_yield": None, "pe_avg5y": None, "pe_avg5y_n": 0,
+           "forward_pe_avg5y": None, "forward_pe_avg5y_n": 0,
+           "psr_avg5y": None, "psr_avg5y_n": 0,
+           "pbr_avg5y": None, "pbr_avg5y_n": 0}
     try:
         stock = yf.Ticker(ticker)
         history = stock.history(period="1y", interval="1d", auto_adjust=False)
@@ -52,6 +85,8 @@ def fetch_one(ticker):
         row["dividend_yield"] = number(info.get("trailingAnnualDividendYield"))
         if row["dividend_yield"] is None:
             row["dividend_yield"] = number(info.get("dividendYield"))
+        add_valuation_averages(stock, row)
     except Exception as exc:
         row["error"] = str(exc)[:180]
     return row
+
