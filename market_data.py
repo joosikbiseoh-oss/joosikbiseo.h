@@ -1,10 +1,17 @@
 """Daily public stock data for the hosted dashboard."""
 
+import concurrent.futures
 import math
 
 import yfinance as yf
 
 TICKERS = ["AAPL", "MSFT", "NVDA", "GOOGL", "META", "TSLA", "AVGO", "AMD", "ORCL", "CRWD", "SPCX", "PLTR"]
+MARKET_INDEXES = [
+    ("sp500", "^GSPC", "S&P 500"),
+    ("nasdaq", "^IXIC", "나스닥 종합"),
+    ("dow", "^DJI", "다우존스"),
+]
+VIX_INDEX = ("vix", "^VIX", "VIX")
 COMPANIES = {
     "AAPL": "Apple", "MSFT": "Microsoft", "NVDA": "NVIDIA", "GOOGL": "Alphabet",
     "META": "Meta Platforms", "TSLA": "Tesla", "AVGO": "Broadcom", "AMD": "AMD",
@@ -18,6 +25,34 @@ def number(value):
         return value if math.isfinite(value) else None
     except (TypeError, ValueError):
         return None
+
+
+def fetch_market_quote(key, symbol, name):
+    """Fetch a latest close and previous-close change for a market index."""
+    row = {"key": key, "symbol": symbol, "name": name, "price": None,
+           "price_date": None, "change": None, "change_pct": None}
+    try:
+        history = yf.Ticker(symbol).history(period="5d", interval="1d", auto_adjust=False)
+        if not history.empty:
+            close = history["Close"].dropna()
+            if len(close):
+                row["price"] = number(close.iloc[-1])
+                row["price_date"] = str(close.index[-1].date())
+            if len(close) >= 2:
+                previous = number(close.iloc[-2])
+                row["change"] = round(row["price"] - previous, 4) if row["price"] is not None and previous is not None else None
+                row["change_pct"] = row["change"] / previous if row["change"] is not None and previous else None
+    except Exception as exc:
+        row["error"] = str(exc)[:180]
+    return row
+
+
+def fetch_market_snapshot():
+    """Fetch the three U.S. market indexes and VIX for the header."""
+    quotes = [*MARKET_INDEXES, VIX_INDEX]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+        rows = list(pool.map(lambda item: fetch_market_quote(*item), quotes))
+    return {"indices": rows[:len(MARKET_INDEXES)], "vix": rows[-1]}
 
 
 VALUATION_HISTORY = {
