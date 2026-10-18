@@ -37,15 +37,19 @@ def chart_series(close):
 def fetch_market_quote(key, symbol, name):
     """Fetch a latest close and previous-close change for a market index."""
     row = {"key": key, "symbol": symbol, "name": name, "price": None,
-           "price_date": None, "change": None, "change_pct": None, "chart": []}
+           "price_date": None, "change": None, "change_pct": None,
+           "drawdown_pct": None, "chart": []}
     try:
-        history = yf.Ticker(symbol).history(period="1y", interval="1d", auto_adjust=False)
+        history = yf.Ticker(symbol).history(period="max", interval="1d", auto_adjust=False)
         if not history.empty:
             close = history["Close"].dropna()
-            row["chart"] = chart_series(close)
+            row["chart"] = chart_series(close.tail(252))
             if len(close):
                 row["price"] = number(close.iloc[-1])
                 row["price_date"] = str(close.index[-1].date())
+                peak = number(close.max())
+                if row["price"] is not None and peak and peak > 0:
+                    row["drawdown_pct"] = round(max(0, (1 - row["price"] / peak) * 100), 2)
             if len(close) >= 2:
                 previous = number(close.iloc[-2])
                 row["change"] = round(row["price"] - previous, 4) if row["price"] is not None and previous is not None else None
@@ -95,8 +99,8 @@ def add_valuation_averages(stock, row):
 def fetch_one(ticker):
     row = {"ticker": ticker, "name": COMPANIES[ticker], "price": None, "price_date": None,
            "change": None, "change_pct": None, "market_cap": None,
-           "chart": [],
-           "above50": None, "ordered": None,
+           "chart": [], "drawdown_pct": None,
+           "ordered": None,
            "pe": None, "forward_pe": None, "psr": None, "pbr": None, "fcf": None,
            "dividend_yield": None, "pe_avg5y": None, "pe_avg5y_n": 0,
            "forward_pe_avg5y": None, "forward_pe_avg5y_n": 0,
@@ -104,20 +108,21 @@ def fetch_one(ticker):
            "pbr_avg5y": None, "pbr_avg5y_n": 0}
     try:
         stock = yf.Ticker(ticker)
-        history = stock.history(period="1y", interval="1d", auto_adjust=False)
+        history = stock.history(period="max", interval="1d", auto_adjust=False)
         if not history.empty:
             close = history["Close"].dropna()
-            row["chart"] = chart_series(close)
+            row["chart"] = chart_series(close.tail(252))
             row["price"] = number(close.iloc[-1])
             row["price_date"] = str(close.index[-1].date())
+            peak = number(close.max())
+            if row["price"] is not None and peak and peak > 0:
+                row["drawdown_pct"] = round(max(0, (1 - row["price"] / peak) * 100), 2)
             if len(close) >= 2:
                 previous_close = number(close.iloc[-2])
                 row["change"] = round(row["price"] - previous_close, 4)
                 row["change_pct"] = row["change"] / previous_close if previous_close else None
             averages = {n: number(close.tail(n).mean()) if len(close) >= n else None
-                        for n in (20, 50, 60, 120, 200)}
-            if averages[50] is not None and row["price"] is not None:
-                row["above50"] = row["price"] > averages[50]
+                        for n in (20, 60, 120, 200)}
             if all(averages[n] is not None for n in (20, 60, 120, 200)):
                 row["ordered"] = averages[20] > averages[60] > averages[120] > averages[200]
         info = stock.info or {}
