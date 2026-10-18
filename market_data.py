@@ -87,7 +87,8 @@ def add_valuation_averages(stock, row):
 
 def fetch_one(ticker):
     row = {"ticker": ticker, "name": COMPANIES[ticker], "price": None, "price_date": None,
-           "change": None, "change_pct": None, "above50": None, "ordered": None,
+           "change": None, "change_pct": None, "market_cap": None,
+           "above50": None, "ordered": None,
            "pe": None, "forward_pe": None, "psr": None, "pbr": None, "fcf": None,
            "dividend_yield": None, "pe_avg5y": None, "pe_avg5y_n": 0,
            "forward_pe_avg5y": None, "forward_pe_avg5y_n": 0,
@@ -111,6 +112,8 @@ def fetch_one(ticker):
             if all(averages[n] is not None for n in (20, 60, 120, 200)):
                 row["ordered"] = averages[20] > averages[60] > averages[120] > averages[200]
         info = stock.info or {}
+        market_cap = number(info.get("marketCap"))
+        row["market_cap"] = round(market_cap / 1_000_000_000, 2) if market_cap is not None else None
         row["pe"] = number(info.get("trailingPE"))
         row["forward_pe"] = number(info.get("forwardPE"))
         row["psr"] = number(info.get("priceToSalesTrailing12Months"))
