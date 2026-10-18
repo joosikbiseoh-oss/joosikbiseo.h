@@ -82,7 +82,7 @@ SEC_CIKS = {
 
 def sec_json(url):
     request = urllib.request.Request(
-        url, headers={"User-Agent": "JoosikBiseoH public market dashboard/1.0", "Accept-Encoding": "gzip, deflate"}
+        url, headers={"User-Agent": "JoosikBiseoH public market dashboard/1.0"}
     )
     with urllib.request.urlopen(request, timeout=25) as response:
         return json.loads(response.read())
