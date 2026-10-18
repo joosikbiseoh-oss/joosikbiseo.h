@@ -29,14 +29,20 @@ def number(value):
         return None
 
 
+def chart_series(close):
+    return [[str(index.date()), round(value, 4)] for index, raw in close.items()
+            if (value := number(raw)) is not None]
+
+
 def fetch_market_quote(key, symbol, name):
     """Fetch a latest close and previous-close change for a market index."""
     row = {"key": key, "symbol": symbol, "name": name, "price": None,
-           "price_date": None, "change": None, "change_pct": None}
+           "price_date": None, "change": None, "change_pct": None, "chart": []}
     try:
-        history = yf.Ticker(symbol).history(period="5d", interval="1d", auto_adjust=False)
+        history = yf.Ticker(symbol).history(period="1y", interval="1d", auto_adjust=False)
         if not history.empty:
             close = history["Close"].dropna()
+            row["chart"] = chart_series(close)
             if len(close):
                 row["price"] = number(close.iloc[-1])
                 row["price_date"] = str(close.index[-1].date())
@@ -89,6 +95,7 @@ def add_valuation_averages(stock, row):
 def fetch_one(ticker):
     row = {"ticker": ticker, "name": COMPANIES[ticker], "price": None, "price_date": None,
            "change": None, "change_pct": None, "market_cap": None,
+           "chart": [],
            "above50": None, "ordered": None,
            "pe": None, "forward_pe": None, "psr": None, "pbr": None, "fcf": None,
            "dividend_yield": None, "pe_avg5y": None, "pe_avg5y_n": 0,
@@ -100,6 +107,7 @@ def fetch_one(ticker):
         history = stock.history(period="1y", interval="1d", auto_adjust=False)
         if not history.empty:
             close = history["Close"].dropna()
+            row["chart"] = chart_series(close)
             row["price"] = number(close.iloc[-1])
             row["price_date"] = str(close.index[-1].date())
             if len(close) >= 2:
