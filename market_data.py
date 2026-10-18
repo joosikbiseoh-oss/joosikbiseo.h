@@ -1,11 +1,7 @@
 """Daily public stock data for the hosted dashboard."""
 
 import concurrent.futures
-import datetime as dt
-import json
 import math
-import urllib.error
-import urllib.request
 
 import yfinance as yf
 
@@ -68,83 +64,6 @@ VALUATION_HISTORY = {
     "pbr": "Price/Book",
 }
 
-# SEC's public companyfacts endpoint provides reported diluted EPS. When Yahoo's
-# annual P/E history is too sparse, pair those annual EPS facts with the last
-# available closing price on or before each fiscal year-end.
-SEC_CIKS = {
-    "AAPL": "0000320193", "MSFT": "0000789019", "NVDA": "0001045810",
-    "GOOGL": "0001652044", "META": "0001326801", "TSLA": "0001318605",
-    "AVGO": "0001730168", "AMD": "0000002488", "ORCL": "0001341439",
-    "CRWD": "0001535527", "PLTR": "0001321655", "AMZN": "0001018724",
-    "SPCX": "0001181412",
-    "MU": "0000723125", "INTC": "0000050863", "ASML": "0000937966",
-}
-
-
-def sec_json(url):
-    request = urllib.request.Request(
-        url, headers={"User-Agent": "JoosikBiseoH public market dashboard/1.0"}
-    )
-    with urllib.request.urlopen(request, timeout=25) as response:
-        return json.loads(response.read())
-
-
-def add_sec_pe_fallback(stock, ticker, row):
-    """Fill sparse Yahoo P/E averages from SEC annual diluted EPS facts."""
-    if row.get("pe_avg5y_n", 0) >= 3 or ticker not in SEC_CIKS:
-        return
-    try:
-        facts = sec_json(f"https://data.sec.gov/api/xbrl/companyfacts/CIK{SEC_CIKS[ticker]}.json")
-        eps_facts = facts.get("facts", {}).get("us-gaap", {}).get("EarningsPerShareDiluted", {}).get("units", {})
-        observations = next((items for unit, items in eps_facts.items() if unit.lower() in ("usd/shares", "usd / shares")), [])
-        if not observations:
-            return
-
-        # Prefer the latest reported version of each annual fact. This also
-        # picks up later restatements where the company reported them.
-        annual = {}
-        today = dt.date.today()
-        for fact in observations:
-            if fact.get("form") != "10-K" or not fact.get("end") or not fact.get("start"):
-                continue
-            end = dt.date.fromisoformat(fact["end"])
-            start = dt.date.fromisoformat(fact["start"])
-            if end > today or not 300 <= (end - start).days <= 400:
-                continue
-            filed = fact.get("filed", "")
-            if end not in annual or filed > annual[end].get("filed", ""):
-                annual[end] = fact
-        periods = sorted(annual.items())[-5:]
-        if not periods:
-            return
-
-        history = stock.history(period="6y", interval="1d", auto_adjust=False)
-        if history.empty:
-            return
-        closes = {}
-        for index, close in history["Close"].dropna().items():
-            closes[index.date()] = number(close)
-
-        ratios = []
-        for end, fact in periods:
-            eps = number(fact.get("val"))
-            # Loss-making years do not have a meaningful positive P/E multiple.
-            if eps is None or eps <= 0:
-                continue
-            eligible = [day for day in closes if day <= end and (end - day).days <= 7]
-            if not eligible:
-                continue
-            close = closes[max(eligible)]
-            if close is not None and close > 0:
-                ratios.append(close / eps)
-        if ratios:
-            row["pe_avg5y"] = round(sum(ratios) / len(ratios), 4)
-            row["pe_avg5y_n"] = len(ratios)
-    except Exception:
-        # Keep the existing Yahoo values if SEC data is unavailable.
-        return
-
-
 def add_valuation_averages(stock, row):
     """Add averages of Yahoo's available annual valuation history (up to five years)."""
     try:
@@ -206,7 +125,6 @@ def fetch_one(ticker):
         if row["dividend_yield"] is None:
             row["dividend_yield"] = number(info.get("dividendYield"))
         add_valuation_averages(stock, row)
-        add_sec_pe_fallback(stock, ticker, row)
     except Exception as exc:
         row["error"] = str(exc)[:180]
     return row
