@@ -5,7 +5,7 @@ import math
 
 import yfinance as yf
 
-TICKERS = ["AAPL", "MSFT", "NVDA", "GOOGL", "META", "TSLA", "AVGO", "AMD", "ORCL", "CRWD", "SPCX", "PLTR", "AMZN"]
+TICKERS = ["AAPL", "MSFT", "NVDA", "GOOGL", "META", "TSLA", "AVGO", "AMD", "ORCL", "CRWD", "SPCX", "PLTR", "AMZN", "MU", "INTC", "ASML"]
 MARKET_INDEXES = [
     ("sp500", "^GSPC", "S&P 500"),
     ("nasdaq", "^IXIC", "나스닥 종합"),
@@ -17,6 +17,7 @@ COMPANIES = {
     "META": "Meta Platforms", "TSLA": "Tesla", "AVGO": "Broadcom", "AMD": "AMD",
     "ORCL": "Oracle", "CRWD": "CrowdStrike", "SPCX": "SpaceX", "PLTR": "Palantir",
     "AMZN": "Amazon",
+    "MU": "Micron Technology", "INTC": "Intel", "ASML": "ASML",
 }
 
 
