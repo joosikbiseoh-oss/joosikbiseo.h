@@ -9,7 +9,7 @@ from pathlib import Path
 
 import yfinance as yf
 
-from market_data import TICKERS, fetch_one
+from market_data import TICKERS, fetch_market_snapshot, fetch_one
 
 ROOT = Path(__file__).resolve().parent
 
@@ -26,11 +26,12 @@ def main():
         raise RuntimeError("No stock prices were received; keeping the previous published data.")
     result = {
         "rows": rows,
+        **fetch_market_snapshot(),
         "updated": dt.datetime.now(dt.timezone.utc).isoformat(),
         "state": "ready",
     }
     (ROOT / "data.json").write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
-    print(f"Updated {sum(row.get('price') is not None for row in rows)}/{len(rows)} stock prices")
+    print(f"Updated {sum(row.get('price') is not None for row in rows)}/{len(rows)} stock prices and market indexes")
 
 
 if __name__ == "__main__":
