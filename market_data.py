@@ -5,6 +5,8 @@ import math
 
 import yfinance as yf
 
+from nasdaq100 import NASDAQ100_COMPANIES
+
 TICKERS = ["AAPL", "MSFT", "NVDA", "GOOGL", "META", "TSLA", "AVGO", "AMD", "ORCL", "CRWD", "SPCX", "PLTR", "AMZN", "MU", "INTC", "ASML"]
 MARKET_INDEXES = [
     ("sp500", "^GSPC", "S&P 500"),
@@ -19,6 +21,9 @@ COMPANIES = {
     "AMZN": "Amazon",
     "MU": "Micron Technology", "INTC": "Intel", "ASML": "ASML",
 }
+
+
+COMPANIES.update(NASDAQ100_COMPANIES)
 
 
 def number(value):
